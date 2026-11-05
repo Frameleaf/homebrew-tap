@@ -1,0 +1,22 @@
+name: Casks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Style, audit, install and uninstall
+        run: |
+          brew tap frameleaf/tap "$GITHUB_WORKSPACE"
+          for cask in Casks/*.rb; do
+            name="frameleaf/tap/$(basename "$cask" .rb)"
+            brew style --cask "$name"
+            brew audit --cask --online --strict "$name"
+            brew install --cask "$name"
+            brew uninstall --cask "$name"
+          done

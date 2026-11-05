@@ -13,6 +13,7 @@ jobs:
       - name: Style, audit, install and uninstall
         run: |
           brew tap frameleaf/tap "$GITHUB_WORKSPACE"
+          brew trust --tap frameleaf/tap
           for cask in Casks/*.rb; do
             name="frameleaf/tap/$(basename "$cask" .rb)"
             brew style --cask "$name"

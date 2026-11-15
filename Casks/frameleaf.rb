@@ -1,6 +1,6 @@
 cask "frameleaf" do
-  version "0.1.3"
-  sha256 "b9636c8965301a0ef69eb5090d27b74b8769fe9c13a57f919ad195e1660345af"
+  version "0.1.5"
+  sha256 "7457b555b455aa99593fdc5bde5967e4fae95326ea2ba7ee19601ca58f6f43f6"
 
   url "https://github.com/Frameleaf/frameleaf-desktop/releases/download/v#{version}/Frameleaf_#{version}_aarch64.dmg",
       verified: "github.com/Frameleaf/frameleaf-desktop/"

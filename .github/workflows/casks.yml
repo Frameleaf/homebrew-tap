@@ -13,17 +13,23 @@ permissions:
 
 jobs:
   check:
-    runs-on: macos-latest
-    permissions:
-      contents: write
+    runs-on: macos
+    env:
+      # Forgejo's own token cannot talk to GitHub, so use the org GitHub token for gh, brew and the push.
+      GH_TOKEN: ${{ secrets.GH_PUBLISH_TOKEN }}
+      HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GH_PUBLISH_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
       # ponytail: on schedule/dispatch, follow the latest Frameleaf Desktop release so the cask never lags.
       - name: Follow the latest release
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
+          # GitHub is the public tap and the source of truth: start from its main, not Forgejo's mirror.
+          gh_git() { git -c "http.extraheader=Authorization: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64)" "$@"; }
+          gh_git fetch https://github.com/Frameleaf/homebrew-tap.git main
+          git reset --hard FETCH_HEAD
           version=$(gh release view -R Frameleaf/frameleaf-desktop --json tagName -q .tagName | sed 's/^v//')
           sha=$(gh release download "v$version" -R Frameleaf/frameleaf-desktop -p SHA256SUMS -O - \
             | awk -v f="Frameleaf_${version}_aarch64.dmg" '$2 == f { print $1 }')
@@ -31,23 +37,25 @@ jobs:
           sed -i '' -e "s/^  version \".*\"/  version \"$version\"/" -e "s/^  sha256 \".*\"/  sha256 \"$sha\"/" Casks/frameleaf.rb
           git diff --stat
       - name: Style, audit, install and uninstall
-        env:
-          HOMEBREW_GITHUB_API_TOKEN: ${{ github.token }}
         run: |
-          brew tap frameleaf/tap "$GITHUB_WORKSPACE"
-          brew trust --tap frameleaf/tap
+          # ponytail: the macos runner is a real Mac, so audit under a throwaway tap name and skip install/uninstall.
+          tap=frameleaf-ci/tap
+          trap 'brew untap "$tap"' EXIT
+          brew tap "$tap" "$GITHUB_WORKSPACE"
+          brew trust --tap "$tap"
           for cask in Casks/*.rb; do
-            name="frameleaf/tap/$(basename "$cask" .rb)"
+            name="$tap/$(basename "$cask" .rb)"
             brew style --cask "$name"
             brew audit --cask --online --strict "$name"
-            brew install --cask "$name"
-            brew uninstall --cask "$name"
           done
       - name: Commit the update
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
           git diff --quiet && exit 0
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          gh_git() { git -c "http.extraheader=Authorization: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64)" "$@"; }
+          git config user.name 'AJ Taylor'
+          git config user.email 'aj@ajtaylor.ca'
           git commit -am "Update frameleaf to $(sed -n 's/^  version "\(.*\)"/\1/p' Casks/frameleaf.rb)"
-          git push origin HEAD:refs/heads/main
+          gh_git push https://github.com/Frameleaf/homebrew-tap.git HEAD:refs/heads/main
+          # Keep the Forgejo mirror in step (GitHub wins, hence the force).
+          git push --force origin HEAD:refs/heads/main

@@ -54,7 +54,7 @@ jobs:
           git diff --quiet && exit 0
           gh_git() { git -c "http.extraheader=Authorization: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64)" "$@"; }
           git config user.name 'AJ Taylor'
-          git config user.email 'aj@ajtaylor.ca'
+          git config user.email 'aj@ajtaylor.net'
           git commit -am "Update frameleaf to $(sed -n 's/^  version "\(.*\)"/\1/p' Casks/frameleaf.rb)"
           gh_git push https://github.com/Frameleaf/homebrew-tap.git HEAD:refs/heads/main
           # Keep the Forgejo mirror in step (GitHub wins, hence the force).
